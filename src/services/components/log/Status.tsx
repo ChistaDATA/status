@@ -1,5 +1,4 @@
 import { FunctionComponent } from "react"
-import Log from "../../types/Log"
 import LogDaySummary from "../../types/LogDaySummary"
 
 interface ServiceLogProps {

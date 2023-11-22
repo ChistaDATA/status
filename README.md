@@ -33,13 +33,6 @@ Replace **mehatab/fettle** with your **username/repo-name**
 https://raw.githubusercontent.com/mehatab/fettle/main/public/status/${key}_report.log
 ```
 
-Go to `src > services > hooks > useSystemStatus.tsx` file and update the url with your repository url.
-
-Replace **mehatab/fettle** with your **username/repo-name**
-```
-https://raw.githubusercontent.com/mehatab/fettle/main/public/status/${key}_report.log
-```
-
 ## Deployment setup
 
 Then, you need to enable GitHub Pages on your forked repository. You can do this by going to `Settings > Pages` and enabling it on the `main` branch.

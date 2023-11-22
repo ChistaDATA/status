@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import {useState, useEffect} from "react";
 import Service from '../types/Service';
-import Log from "../types/Log";
 import LogDaySummary from "../types/LogDaySummary";
-import { Status } from "../../utils/constants";
+import {Status} from "../../utils/constants";
+import SystemStatus from "../types/SystemStatus";
 
 function useServices() {
     const [data, setData] = useState<Service[]>([]);
+    const [systemStatus, setSystemStatus] = useState<SystemStatus>({datetime: "", status: "", title: ""});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState();
 
@@ -13,26 +14,34 @@ function useServices() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch("./urls.cfg");
-                const configText = await response.text();
-                const configLines = configText.split("\n");
+                const metrics = await fetchMetrics();
+                setData(metrics as Service[]);
 
-                const services: Service[] = []
-                for (let ii = 0; ii < configLines.length; ii++) {
-                    const configLine = configLines[ii];
-                    const [key, url] = configLine.split("=");
-                    if (!key || !url) {
-                        continue;
-                    }
-                    const log = await logs(key);
-
-                    if (log.length > 0) {
-                        services.push({ id: ii, name: key, status: log[log.length - 1].status, logs: log })
-                    } else {
-                        services.push({ id: ii, name: key, status: "unknown", logs: log })
-                    }
+                if (metrics.every((metric) => metric.status === Status.OPERATIONAL)) {
+                    setSystemStatus({
+                        title: "All System Operational",
+                        status: Status.OPERATIONAL,
+                        datetime: metrics[0].lastLogDate
+                    } as SystemStatus);
+                } else if (metrics.every((metric) => metric.status === Status.OUTAGE)) {
+                    setSystemStatus({
+                        title: "Outage",
+                        status: Status.OUTAGE,
+                        datetime: metrics[0].lastLogDate
+                    } as SystemStatus);
+                } else if (metrics.every((metric) => metric.status === Status.PARTIAL_OUTAGE)) {
+                    setSystemStatus({
+                        title: "Partial Outage",
+                        status: Status.PARTIAL_OUTAGE,
+                        datetime: metrics[0].lastLogDate
+                    } as SystemStatus);
+                } else {
+                    setSystemStatus({
+                        title: "Unknown",
+                        status: Status.UNKNOWN,
+                        datetime: metrics[0].lastLogDate
+                    } as SystemStatus);
                 }
-                setData(services as Service[]);
             } catch (e: any) {
                 setError(e);
             } finally {
@@ -42,80 +51,67 @@ function useServices() {
         loadData();
     }, []);
 
-    return [data, isLoading, error];
+    return [data, systemStatus, isLoading, error];
 }
 
-async function logs(key: string): Promise<LogDaySummary[]> {
-    const response = await fetch(`https://raw.githubusercontent.com/mehatab/fettle/main/public/status/${key}_report.log`);
+async function fetchMetrics(): Promise<Service[]> {
+    let now = new Date().toISOString();
+    let ninetyDays = 7776000000;
+    let startTime = new Date(Date.now() - ninetyDays).toISOString();
+    let prometheusQuery = `%281-avg_over_time%28probe_success%5B1d%5D%29%29*86400`
+    const response = await fetch(`http://localhost:9090/api/v1/query_range?query=${prometheusQuery}&start=${startTime}&end=${now}&step=86400`);
+
+    let urlMapping = new Map();
+    urlMapping.set("https://dev.cloud.chistadata.io", "HomePage");
+    urlMapping.set("https://portal.dev.cloud.chistadata.io", "Portal");
+    urlMapping.set("https://control-plane.dev.cloud.chistadata.io/health", "ControlPlane");
+    urlMapping.set("https://auth.dev.cloud.chistadata.io", "Authentication");
+    urlMapping.set("https://keycloak.dev.cloud.chistadata.io", "Keycloak");
+    urlMapping.set("https://docs.dev.cloud.chistadata.io", "Docs");
 
     const text = await response.text();
-    const lines = text.split("\n");
-    const logs: Log[] = [];
-    const logDaySummary: LogDaySummary[] = [];
+    const responseObject = JSON.parse(text);
+    const services: Service[] = []
+    let index = 0;
 
-    lines.forEach((line: string) => {
-        const [created_at, status, response_time] = line.split(", ");
-        logs.push({ id: created_at, response_time, status, created_at })
-    })
+    responseObject.data.result.forEach((result: any) => {
+        const logDaySummary: LogDaySummary[] = [];
 
-    const prepareSummary = Object.values(logs.reduce((r: any, date) => {
-        const [year, month, day] = date.created_at.substr(0, 10).split('-');
-        const key = `${day}_${month}_${year}`;
-        r[key] = r[key] || { date: date.created_at, logs: [] };
-        r[key].logs.push(date);
-        return r;
-    }, {}));
+        if (urlMapping.has(result.metric.instance)) {
 
+            result.values.forEach((day: any) => {
+                let date = new Date(0);
+                date.setUTCSeconds(day[0]);
+                let secondsOfDowntime = day[1];
 
-    prepareSummary.forEach((logSummary: any) => {
-        var avg_response_time = 0
+                let status = ""
+                if (secondsOfDowntime === "0") {
+                    status = Status.OPERATIONAL
+                } else if (secondsOfDowntime > 3600) {
+                    status = Status.OUTAGE
+                } else {
+                    status = Status.PARTIAL_OUTAGE
+                }
 
-        logSummary.logs.forEach((log: Log) => {
-            if (log.response_time) {
-                avg_response_time += Number(log.response_time.replaceAll('s', ''));
-            }
-        });
+                logDaySummary.push({
+                    date: date.toISOString().slice(0, 10),
+                    dateTime: date.toISOString(),
+                    status: status
+                })
+            })
 
-        let status = ""
-        if (logSummary.logs.length === 0) {
-            status = "unknown"
-        } else if (logSummary.logs.every((item:any)=> item.status === 'success')) {
-            status = Status.OPERATIONAL
-        } else if (logSummary.logs.every((item:any)=> item.status === 'failed')) {
-            status = Status.OUTAGE
-        } else {
-            status = Status.PARTIAL_OUTAGE
+            services.push({
+                id: index,
+                name: urlMapping.get(result.metric.instance),
+                status: logDaySummary[logDaySummary.length - 1].status,
+                lastLogDate: logDaySummary[logDaySummary.length - 1].dateTime,
+                logs: logDaySummary
+            })
+            index++;
         }
+    });
 
-        logDaySummary.push({
-            avg_response_time: avg_response_time / logSummary.logs.length,
-            current_status: logSummary.logs[logSummary.logs.length - 1].status,
-            date: logSummary.date.substr(0, 10),
-            status: status
-        })
-    })
-
-
-    return fillData(logDaySummary);
+    return services;
 }
-
-function fillData(data: LogDaySummary[]): LogDaySummary[] {
-    const logDaySummary: LogDaySummary[] = [];
-    var today = new Date();
-
-    for (var i = -1; i < 89; i += 1) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-        const summary = data.find((item) => item.date === d.toISOString().substr(0, 10));
-        logDaySummary.push({
-            avg_response_time: summary?.avg_response_time || 0,
-            current_status: summary?.current_status || "unknown",
-            date: d.toISOString().substr(0, 10),
-            status: summary?.status || "unknown"
-        })
-    }
-
-    return logDaySummary.reverse();
-}
-
 
 export default useServices;

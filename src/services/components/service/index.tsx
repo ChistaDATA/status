@@ -1,6 +1,5 @@
 import { FunctionComponent } from 'react';
 import { Status } from '../../../utils/constants';
-import Log from '../../types/Log';
 import LogDaySummary from '../../types/LogDaySummary';
 import Service from "../../types/Service";
 import ServiceLog from "../log";

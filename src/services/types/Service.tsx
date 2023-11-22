@@ -4,6 +4,7 @@ interface Service {
     id: number;
     name: string;
     status: string;
+    lastLogDate: string;
     logs: LogDaySummary[];
 }
 

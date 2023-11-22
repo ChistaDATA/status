@@ -11,13 +11,13 @@ function useIncidents() {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch("https://api.github.com/repos/mehatab/fettle/issues?per_page=20&state=all&labels=incident");
+                const response = await fetch("https://api.github.com/repos/ChistaDATA/Cloud/issues?per_page=20&state=all&labels=incident");
                 const issues = await response.json();
                 console.log('issues', issues)
                 const monthlyIncident = devideMonthly(issues.map((issue: any) => ({
                     id: issue.id,
                     title: issue.title,
-                    desciption: issue.body,
+                    description: issue.body,
                     status: issue.state,
                     created_at: issue.created_at,
                     closed_at: issue.closed_at,

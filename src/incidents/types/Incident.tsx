@@ -1,7 +1,7 @@
 interface Incident {
     id: number;
     title: string;
-    desciption: string;
+    description: string;
     status: string;
     created_at: string;
     closed_at: string;
