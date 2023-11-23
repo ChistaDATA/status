@@ -9,6 +9,7 @@ import SystemStatus from "./types/SystemStatus";
 declare global {
     interface Window {
         api_host: any;
+        monitoring_urls: any;
     }
 }
 
