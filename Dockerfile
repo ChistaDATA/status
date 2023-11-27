@@ -1,8 +1,6 @@
-FROM node:20.9 as build
-WORKDIR /app
-COPY . .
-RUN npm i && npm run build
-FROM nginx:1.25.3
-COPY --from=build /app/out /usr/share/nginx/html
-COPY ./nginx.conf /etc/ngnix/nginx.conf
+FROM nginxinc/nginx-unprivileged
 
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.d/40-portal-ui-entrypoint.sh
+
+COPY build /usr/share/nginx/html
