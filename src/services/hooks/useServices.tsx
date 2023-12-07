@@ -9,7 +9,7 @@ function useServices() {
     const [systemStatus, setSystemStatus] = useState<SystemStatus>({datetime: "", status: "", title: ""});
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState();
-
+    
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -59,15 +59,13 @@ async function fetchMetrics(): Promise<Service[]> {
     let ninetyDays = 7776000000;
     let startTime = new Date(Date.now() - ninetyDays).toISOString();
     let prometheusQuery = `%281-avg_over_time%28probe_success%5B1d%5D%29%29*86400`
-    const response = await fetch(`http://localhost:9090/api/v1/query_range?query=${prometheusQuery}&start=${startTime}&end=${now}&step=86400`);
-
+    const response = await fetch(`${window.api_host}/api/v1/query_range?query=${prometheusQuery}&start=${startTime}&end=${now}&step=86400`);
+    
     let urlMapping = new Map();
-    urlMapping.set("https://dev.cloud.chistadata.io", "HomePage");
-    urlMapping.set("https://portal.dev.cloud.chistadata.io", "Portal");
-    urlMapping.set("https://control-plane.dev.cloud.chistadata.io/health", "ControlPlane");
-    urlMapping.set("https://auth.dev.cloud.chistadata.io", "Authentication");
-    urlMapping.set("https://keycloak.dev.cloud.chistadata.io", "Keycloak");
-    urlMapping.set("https://docs.dev.cloud.chistadata.io", "Docs");
+
+    window.monitoring_urls.forEach((obj:any) => {
+        urlMapping.set(obj.url,obj.name)
+    });
 
     const text = await response.text();
     const responseObject = JSON.parse(text);

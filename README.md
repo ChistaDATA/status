@@ -1,5 +1,9 @@
+## ChistaDATA Status Page
 
-# Fettle 💟 
+This was forked from Fettle however, it has been adapted to our needs and does not look much like Fettle anymore.
+We will keep the reference to the fork however, it is no longer the same code base.
+Maybe in the future we can prepare a Pull Request to parametrize the configuration and allow other users to do the same we did with less effort.
+
 
 **Fettle** is the open-source status page, powered entirely by GitHub Actions, Issues, and Pages.
 
